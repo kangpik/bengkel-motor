@@ -297,6 +297,7 @@ export type Database = {
           complaint: string
           cost: number
           created_at: string | null
+          current_kilometer: number | null
           customer_id: string | null
           id: string
           mechanic: string | null
@@ -310,6 +311,7 @@ export type Database = {
           complaint: string
           cost?: number
           created_at?: string | null
+          current_kilometer?: number | null
           customer_id?: string | null
           id?: string
           mechanic?: string | null
@@ -323,6 +325,7 @@ export type Database = {
           complaint?: string
           cost?: number
           created_at?: string | null
+          current_kilometer?: number | null
           customer_id?: string | null
           id?: string
           mechanic?: string | null
@@ -357,6 +360,8 @@ export type Database = {
           min_stock: number
           name: string
           price: number
+          purchase_price: number
+          sale_price: number
           stock: number
           supplier: string | null
           updated_at: string | null
@@ -368,6 +373,8 @@ export type Database = {
           min_stock?: number
           name: string
           price: number
+          purchase_price?: number
+          sale_price?: number
           stock?: number
           supplier?: string | null
           updated_at?: string | null
@@ -379,6 +386,8 @@ export type Database = {
           min_stock?: number
           name?: string
           price?: number
+          purchase_price?: number
+          sale_price?: number
           stock?: number
           supplier?: string | null
           updated_at?: string | null

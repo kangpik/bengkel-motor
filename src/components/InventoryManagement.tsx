@@ -43,11 +43,15 @@ import { supabase, SparePart } from "../lib/supabase";
 const InventoryManagement = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isUpdateStockDialogOpen, setIsUpdateStockDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<SparePart | null>(null);
+  const [editItem, setEditItem] = useState<SparePart | null>(null);
   const [updateType, setUpdateType] = useState<"add" | "subtract">("add");
   const [spareParts, setSpareParts] = useState<SparePart[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [editCategory, setEditCategory] = useState("");
 
   useEffect(() => {
     fetchSpareParts();
@@ -88,10 +92,17 @@ const InventoryManagement = () => {
     const formData = new FormData(e.target as HTMLFormElement);
 
     try {
+      const purchasePrice = parseFloat(
+        formData.get("purchase_price") as string,
+      );
+      const salePrice = parseFloat(formData.get("sale_price") as string);
+
       const { error } = await supabase.from("spare_parts").insert({
         name: formData.get("name") as string,
-        category: formData.get("category") as string,
-        price: parseFloat(formData.get("price") as string),
+        category: selectedCategory,
+        price: salePrice, // Use sale_price as the main price for backward compatibility
+        purchase_price: purchasePrice,
+        sale_price: salePrice,
         stock: parseInt(formData.get("stock") as string),
         min_stock: parseInt(formData.get("minStock") as string),
         supplier: formData.get("supplier") as string,
@@ -101,8 +112,10 @@ const InventoryManagement = () => {
 
       await fetchSpareParts();
       setIsAddDialogOpen(false);
+      setSelectedCategory("");
     } catch (error) {
       console.error("Error adding spare part:", error);
+      alert("Gagal menambahkan sparepart: " + error.message);
     }
   };
 
@@ -167,13 +180,53 @@ const InventoryManagement = () => {
     }
   };
 
-  const openUpdateStockDialog = (
-    item: SparePartItem,
-    type: "add" | "subtract",
-  ) => {
+  const openUpdateStockDialog = (item: SparePart, type: "add" | "subtract") => {
     setSelectedItem(item);
     setUpdateType(type);
     setIsUpdateStockDialogOpen(true);
+  };
+
+  const openEditDialog = (item: SparePart) => {
+    setEditItem(item);
+    setEditCategory(item.category);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleEditSparepart = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editItem) return;
+
+    const formData = new FormData(e.target as HTMLFormElement);
+
+    try {
+      const purchasePrice = parseFloat(
+        formData.get("purchase_price") as string,
+      );
+      const salePrice = parseFloat(formData.get("sale_price") as string);
+
+      const { error } = await supabase
+        .from("spare_parts")
+        .update({
+          name: formData.get("name") as string,
+          category: editCategory,
+          price: salePrice,
+          purchase_price: purchasePrice,
+          sale_price: salePrice,
+          min_stock: parseInt(formData.get("minStock") as string),
+          supplier: formData.get("supplier") as string,
+        })
+        .eq("id", editItem.id);
+
+      if (error) throw error;
+
+      await fetchSpareParts();
+      setIsEditDialogOpen(false);
+      setEditItem(null);
+      setEditCategory("");
+    } catch (error) {
+      console.error("Error updating spare part:", error);
+      alert("Gagal mengupdate sparepart: " + error.message);
+    }
   };
 
   return (
@@ -211,7 +264,11 @@ const InventoryManagement = () => {
                   <Label htmlFor="category" className="text-right">
                     Kategori
                   </Label>
-                  <Select name="category" required>
+                  <Select
+                    value={selectedCategory}
+                    onValueChange={setSelectedCategory}
+                    required
+                  >
                     <SelectTrigger className="col-span-3">
                       <SelectValue placeholder="Pilih kategori" />
                     </SelectTrigger>
@@ -225,14 +282,28 @@ const InventoryManagement = () => {
                   </Select>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="price" className="text-right">
-                    Harga
+                  <Label htmlFor="purchase_price" className="text-right">
+                    Harga Beli
                   </Label>
                   <Input
-                    name="price"
+                    name="purchase_price"
                     type="number"
                     className="col-span-3"
-                    placeholder="Harga sparepart"
+                    placeholder="Harga beli sparepart"
+                    min="0"
+                    step="1000"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="sale_price" className="text-right">
+                    Harga Jual
+                  </Label>
+                  <Input
+                    name="sale_price"
+                    type="number"
+                    className="col-span-3"
+                    placeholder="Harga jual sparepart"
                     min="0"
                     step="1000"
                     required
@@ -322,8 +393,9 @@ const InventoryManagement = () => {
                     <TableRow>
                       <TableHead>Nama</TableHead>
                       <TableHead>Kategori</TableHead>
-                      <TableHead>Harga</TableHead>
-                      <TableHead>Stok</TableHead>
+                      <TableHead>Stok Saat Ini</TableHead>
+                      <TableHead>Stok Minimum</TableHead>
+                      <TableHead>Harga Jual</TableHead>
                       <TableHead>Supplier</TableHead>
                       <TableHead>Terakhir Diperbarui</TableHead>
                       <TableHead>Aksi</TableHead>
@@ -332,13 +404,13 @@ const InventoryManagement = () => {
                   <TableBody>
                     {loading ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-4">
+                        <TableCell colSpan={8} className="text-center py-4">
                           Memuat data...
                         </TableCell>
                       </TableRow>
                     ) : filteredSpareParts.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-4">
+                        <TableCell colSpan={8} className="text-center py-4">
                           Tidak ada data sparepart
                         </TableCell>
                       </TableRow>
@@ -348,24 +420,16 @@ const InventoryManagement = () => {
                           <TableCell>{part.name}</TableCell>
                           <TableCell>{part.category}</TableCell>
                           <TableCell>
-                            Rp {part.price.toLocaleString("id-ID")}
+                            <Badge variant="destructive">{part.stock}</Badge>
                           </TableCell>
+                          <TableCell>{part.min_stock}</TableCell>
                           <TableCell>
-                            <div className="flex items-center gap-2">
-                              {part.stock < part.min_stock ? (
-                                <Badge variant="destructive">
-                                  {part.stock}
-                                </Badge>
-                              ) : (
-                                <Badge variant="secondary">{part.stock}</Badge>
-                              )}
-                              {part.stock < part.min_stock && (
-                                <AlertCircle
-                                  size={16}
-                                  className="text-destructive"
-                                />
-                              )}
-                            </div>
+                            Rp{" "}
+                            {(
+                              part.sale_price ||
+                              part.price ||
+                              0
+                            ).toLocaleString("id-ID")}
                           </TableCell>
                           <TableCell>{part.supplier || "-"}</TableCell>
                           <TableCell>
@@ -393,7 +457,11 @@ const InventoryManagement = () => {
                               >
                                 -
                               </Button>
-                              <Button variant="ghost" size="sm">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openEditDialog(part)}
+                              >
                                 <Edit size={16} />
                               </Button>
                               <Button
@@ -443,6 +511,7 @@ const InventoryManagement = () => {
                         <TableHead>Kategori</TableHead>
                         <TableHead>Stok Saat Ini</TableHead>
                         <TableHead>Stok Minimum</TableHead>
+                        <TableHead>Harga Jual</TableHead>
                         <TableHead>Supplier</TableHead>
                         <TableHead>Aksi</TableHead>
                       </TableRow>
@@ -456,6 +525,14 @@ const InventoryManagement = () => {
                             <Badge variant="destructive">{part.stock}</Badge>
                           </TableCell>
                           <TableCell>{part.min_stock}</TableCell>
+                          <TableCell>
+                            Rp{" "}
+                            {(
+                              part.sale_price ||
+                              part.price ||
+                              0
+                            ).toLocaleString("id-ID")}
+                          </TableCell>
                           <TableCell>{part.supplier || "-"}</TableCell>
                           <TableCell>
                             <Button
@@ -476,6 +553,118 @@ const InventoryManagement = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Sparepart Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Sparepart</DialogTitle>
+            <DialogDescription>
+              Ubah informasi sparepart yang sudah ada.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEditSparepart}>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-name" className="text-right">
+                  Nama
+                </Label>
+                <Input
+                  id="edit-name"
+                  name="name"
+                  className="col-span-3"
+                  placeholder="Nama sparepart"
+                  defaultValue={editItem?.name || ""}
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-category" className="text-right">
+                  Kategori
+                </Label>
+                <Select
+                  value={editCategory}
+                  onValueChange={setEditCategory}
+                  required
+                >
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Pilih kategori" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Pelumas">Pelumas</SelectItem>
+                    <SelectItem value="Filter">Filter</SelectItem>
+                    <SelectItem value="Kelistrikan">Kelistrikan</SelectItem>
+                    <SelectItem value="Rem">Rem</SelectItem>
+                    <SelectItem value="Transmisi">Transmisi</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-purchase-price" className="text-right">
+                  Harga Beli
+                </Label>
+                <Input
+                  id="edit-purchase-price"
+                  name="purchase_price"
+                  type="number"
+                  className="col-span-3"
+                  placeholder="Harga beli sparepart"
+                  defaultValue={editItem?.purchase_price || ""}
+                  min="0"
+                  step="1000"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-sale-price" className="text-right">
+                  Harga Jual
+                </Label>
+                <Input
+                  id="edit-sale-price"
+                  name="sale_price"
+                  type="number"
+                  className="col-span-3"
+                  placeholder="Harga jual sparepart"
+                  defaultValue={editItem?.sale_price || editItem?.price || ""}
+                  min="0"
+                  step="1000"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-min-stock" className="text-right">
+                  Stok Minimum
+                </Label>
+                <Input
+                  id="edit-min-stock"
+                  name="minStock"
+                  type="number"
+                  className="col-span-3"
+                  placeholder="Stok minimum"
+                  defaultValue={editItem?.min_stock || ""}
+                  min="0"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-supplier" className="text-right">
+                  Supplier
+                </Label>
+                <Input
+                  id="edit-supplier"
+                  name="supplier"
+                  className="col-span-3"
+                  placeholder="Nama supplier"
+                  defaultValue={editItem?.supplier || ""}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="submit">Update</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Update Stock Dialog */}
       <Dialog
@@ -502,6 +691,7 @@ const InventoryManagement = () => {
                 </Label>
                 <Input
                   id="stockAmount"
+                  name="stockAmount"
                   type="number"
                   min="1"
                   className="col-span-3"
@@ -514,6 +704,7 @@ const InventoryManagement = () => {
                 </Label>
                 <Input
                   id="notes"
+                  name="notes"
                   className="col-span-3"
                   placeholder="Alasan perubahan stok (opsional)"
                 />

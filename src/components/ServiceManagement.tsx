@@ -265,6 +265,8 @@ const ServiceManagement = () => {
         complaint: formData.get("complaint") as string,
         cost: parseFloat(formData.get("cost") as string) || 0,
         mechanic: formData.get("mechanic") as string,
+        current_kilometer:
+          parseInt(formData.get("current_kilometer") as string) || null,
         status: formData.get("status") as
           | "pending"
           | "in-progress"
@@ -295,6 +297,8 @@ const ServiceManagement = () => {
           complaint: formData.get("complaint") as string,
           cost: parseFloat(formData.get("cost") as string) || 0,
           mechanic: formData.get("mechanic") as string,
+          current_kilometer:
+            parseInt(formData.get("current_kilometer") as string) || null,
           status: formData.get("status") as
             | "pending"
             | "in-progress"
@@ -462,6 +466,17 @@ const ServiceManagement = () => {
                     />
                   </div>
                   <div className="space-y-2">
+                    <Label htmlFor="current_kilometer">
+                      Kilometer Saat Ini
+                    </Label>
+                    <Input
+                      name="current_kilometer"
+                      type="number"
+                      placeholder="0"
+                      min="0"
+                    />
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="cost">Biaya Estimasi</Label>
                     <Input
                       name="cost"
@@ -502,6 +517,7 @@ const ServiceManagement = () => {
                     <TableHead>Keluhan</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Biaya</TableHead>
+                    <TableHead>Kilometer</TableHead>
                     <TableHead>Mekanik</TableHead>
                     <TableHead>Invoice</TableHead>
                     <TableHead className="text-right">Aksi</TableHead>
@@ -510,7 +526,7 @@ const ServiceManagement = () => {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={10} className="text-center py-10">
+                      <TableCell colSpan={11} className="text-center py-10">
                         Memuat data...
                       </TableCell>
                     </TableRow>
@@ -533,6 +549,11 @@ const ServiceManagement = () => {
                         <TableCell>{getStatusBadge(service.status)}</TableCell>
                         <TableCell>
                           Rp {service.cost.toLocaleString("id-ID")}
+                        </TableCell>
+                        <TableCell>
+                          {service.current_kilometer
+                            ? `${service.current_kilometer.toLocaleString("id-ID")} km`
+                            : "-"}
                         </TableCell>
                         <TableCell>{service.mechanic}</TableCell>
                         <TableCell>
@@ -630,7 +651,7 @@ const ServiceManagement = () => {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={10} className="text-center py-10">
+                      <TableCell colSpan={11} className="text-center py-10">
                         Tidak ada data servis yang ditemukan
                       </TableCell>
                     </TableRow>
@@ -714,6 +735,17 @@ const ServiceManagement = () => {
                   <Textarea
                     name="complaint"
                     defaultValue={selectedService.complaint}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-current_kilometer">
+                    Kilometer Saat Ini
+                  </Label>
+                  <Input
+                    name="current_kilometer"
+                    type="number"
+                    defaultValue={selectedService.current_kilometer || ""}
+                    min="0"
                   />
                 </div>
                 <div className="space-y-2">

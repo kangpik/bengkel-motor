@@ -163,7 +163,11 @@ const CreateInvoice: React.FC<CreateInvoiceProps> = ({
     if (sparePart) {
       updateInvoiceItem(itemId, "item_id", sparePartId);
       updateInvoiceItem(itemId, "description", sparePart.name);
-      updateInvoiceItem(itemId, "unit_price", sparePart.price);
+      updateInvoiceItem(
+        itemId,
+        "unit_price",
+        sparePart.sale_price || sparePart.price || 0,
+      );
     }
   };
 
@@ -346,7 +350,11 @@ const CreateInvoice: React.FC<CreateInvoiceProps> = ({
                               {spareParts.map((part) => (
                                 <SelectItem key={part.id} value={part.id}>
                                   {part.name} - Rp{" "}
-                                  {part.price.toLocaleString("id-ID")}
+                                  {(
+                                    part.sale_price ||
+                                    part.price ||
+                                    0
+                                  ).toLocaleString("id-ID")}
                                 </SelectItem>
                               ))}
                             </SelectContent>
