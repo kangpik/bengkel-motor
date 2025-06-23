@@ -27,6 +27,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "./ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "./ui/alert-dialog";
 import { Label } from "./ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
@@ -42,7 +53,10 @@ const CustomerDatabase = () => {
   const [selectedCustomer, setSelectedCustomer] =
     useState<CustomerWithVehicles | null>(null);
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
+  const [isEditCustomerOpen, setIsEditCustomerOpen] = useState(false);
   const [isViewDetailsOpen, setIsViewDetailsOpen] = useState(false);
+  const [isAddVehicleOpen, setIsAddVehicleOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [customers, setCustomers] = useState<CustomerWithVehicles[]>([]);
   const [customerVehicles, setCustomerVehicles] = useState<Vehicle[]>([]);
   const [serviceHistory, setServiceHistory] = useState<Service[]>([]);
@@ -169,6 +183,38 @@ const CustomerDatabase = () => {
     }
   };
 
+  const handleEditCustomer = (customer: Customer) => {
+    setEditingCustomer(customer);
+    setIsEditCustomerOpen(true);
+  };
+
+  const handleUpdateCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCustomer) return;
+
+    const formData = new FormData(e.target as HTMLFormElement);
+
+    try {
+      const { error } = await supabase
+        .from("customers")
+        .update({
+          name: formData.get("name") as string,
+          phone: formData.get("phone") as string,
+          email: formData.get("email") as string,
+          address: formData.get("address") as string,
+        })
+        .eq("id", editingCustomer.id);
+
+      if (error) throw error;
+
+      await fetchCustomers();
+      setIsEditCustomerOpen(false);
+      setEditingCustomer(null);
+    } catch (error) {
+      console.error("Error updating customer:", error);
+    }
+  };
+
   const handleDeleteCustomer = async (id: string) => {
     try {
       const { error } = await supabase.from("customers").delete().eq("id", id);
@@ -178,6 +224,30 @@ const CustomerDatabase = () => {
       await fetchCustomers();
     } catch (error) {
       console.error("Error deleting customer:", error);
+    }
+  };
+
+  const handleAddVehicle = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCustomer) return;
+
+    const formData = new FormData(e.target as HTMLFormElement);
+
+    try {
+      const { error } = await supabase.from("vehicles").insert({
+        customer_id: selectedCustomer.id,
+        plate_number: formData.get("plateNumber") as string,
+        brand: formData.get("brand") as string,
+        model: formData.get("model") as string,
+        year: formData.get("year") as string,
+      });
+
+      if (error) throw error;
+
+      await fetchCustomerVehicles(selectedCustomer.id);
+      setIsAddVehicleOpen(false);
+    } catch (error) {
+      console.error("Error adding vehicle:", error);
     }
   };
 
@@ -261,16 +331,44 @@ const CustomerDatabase = () => {
                         >
                           <ChevronRight className="h-4 w-4" />
                         </Button>
-                        <Button variant="outline" size="sm">
-                          <Edit className="h-4 w-4" />
-                        </Button>
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleDeleteCustomer(customer.id)}
+                          onClick={() => handleEditCustomer(customer)}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Edit className="h-4 w-4" />
                         </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>
+                                Hapus Pelanggan
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Apakah Anda yakin ingin menghapus pelanggan{" "}
+                                {customer.name}? Tindakan ini tidak dapat
+                                dibatalkan dan akan menghapus semua data
+                                kendaraan dan riwayat servis yang terkait.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Batal</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() =>
+                                  handleDeleteCustomer(customer.id)
+                                }
+                                className="bg-red-600 hover:bg-red-700"
+                              >
+                                Hapus
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -373,6 +471,72 @@ const CustomerDatabase = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Customer Dialog */}
+      <Dialog open={isEditCustomerOpen} onOpenChange={setIsEditCustomerOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Pelanggan</DialogTitle>
+            <DialogDescription>
+              Ubah informasi pelanggan di bawah ini.
+            </DialogDescription>
+          </DialogHeader>
+          {editingCustomer && (
+            <form onSubmit={handleUpdateCustomer}>
+              <div className="grid gap-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-name">Nama Lengkap</Label>
+                  <Input
+                    name="name"
+                    defaultValue={editingCustomer.name}
+                    placeholder="Masukkan nama lengkap"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-phone">Nomor Telepon</Label>
+                  <Input
+                    name="phone"
+                    defaultValue={editingCustomer.phone}
+                    placeholder="Masukkan nomor telepon"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-email">Email</Label>
+                  <Input
+                    name="email"
+                    type="email"
+                    defaultValue={editingCustomer.email || ""}
+                    placeholder="Masukkan email"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-address">Alamat</Label>
+                  <Input
+                    name="address"
+                    defaultValue={editingCustomer.address || ""}
+                    placeholder="Masukkan alamat"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsEditCustomerOpen(false);
+                    setEditingCustomer(null);
+                  }}
+                >
+                  Batal
+                </Button>
+                <Button type="submit">Simpan Perubahan</Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* View Customer Details Dialog */}
       <Dialog open={isViewDetailsOpen} onOpenChange={setIsViewDetailsOpen}>
         <DialogContent className="sm:max-w-[800px]">
@@ -446,7 +610,11 @@ const CustomerDatabase = () => {
                       </Table>
                     </CardContent>
                     <CardFooter>
-                      <Button variant="outline" size="sm">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsAddVehicleOpen(true)}
+                      >
                         <Plus className="mr-2 h-4 w-4" /> Tambah Kendaraan
                       </Button>
                     </CardFooter>
@@ -532,6 +700,62 @@ const CustomerDatabase = () => {
               Tutup
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Vehicle Dialog */}
+      <Dialog open={isAddVehicleOpen} onOpenChange={setIsAddVehicleOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Tambah Kendaraan Baru</DialogTitle>
+            <DialogDescription>
+              Tambahkan kendaraan baru untuk {selectedCustomer?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleAddVehicle}>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="vehicle-plateNumber">Plat Nomor</Label>
+                <Input
+                  name="plateNumber"
+                  placeholder="Contoh: B 1234 ABC"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="vehicle-brand">Merek</Label>
+                  <Input
+                    name="brand"
+                    placeholder="Contoh: Honda, Yamaha"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="vehicle-model">Model</Label>
+                  <Input
+                    name="model"
+                    placeholder="Contoh: Beat, NMAX"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="vehicle-year">Tahun</Label>
+                <Input name="year" placeholder="Contoh: 2020" required />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsAddVehicleOpen(false)}
+              >
+                Batal
+              </Button>
+              <Button type="submit">Simpan</Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
