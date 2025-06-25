@@ -19,7 +19,10 @@ import {
   getFinancialSummary,
   getFinancialTrends,
   getMonthlyFinancialData,
+  getDetailedExpenseBreakdown,
 } from "../lib/supabase";
+import AddExpenseDialog from "./AddExpenseDialog";
+import ExpenseList from "./ExpenseList";
 
 interface FinancialReportsProps {
   data?: {
@@ -49,10 +52,28 @@ const FinancialReports: React.FC<FinancialReportsProps> = () => {
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [data, setData] = useState<FinancialReportsProps["data"]>(defaultData);
   const [loading, setLoading] = useState(true);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [expenseBreakdown, setExpenseBreakdown] = useState<any>(null);
+  const [expenseLoading, setExpenseLoading] = useState(true);
 
   useEffect(() => {
     fetchFinancialData();
+    fetchExpenseBreakdown();
   }, [period]);
+
+  const fetchExpenseBreakdown = async () => {
+    setExpenseLoading(true);
+    try {
+      const breakdown = await getDetailedExpenseBreakdown(
+        period as "daily" | "weekly" | "monthly",
+      );
+      setExpenseBreakdown(breakdown);
+    } catch (error) {
+      console.error("Error fetching expense breakdown:", error);
+    } finally {
+      setExpenseLoading(false);
+    }
+  };
 
   const fetchFinancialData = async () => {
     setLoading(true);
@@ -76,11 +97,18 @@ const FinancialReports: React.FC<FinancialReportsProps> = () => {
     }
   };
 
+  const handleExpenseAdded = () => {
+    fetchFinancialData();
+    fetchExpenseBreakdown();
+    setRefreshTrigger((prev) => prev + 1);
+  };
+
   return (
     <div className="w-full p-6 bg-background">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Laporan Keuangan</h1>
         <div className="flex items-center gap-4">
+          <AddExpenseDialog onExpenseAdded={handleExpenseAdded} />
           <Select value={period} onValueChange={setPeriod}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Pilih Periode" />
@@ -235,6 +263,8 @@ const FinancialReports: React.FC<FinancialReportsProps> = () => {
                   </div>
                 </CardContent>
               </Card>
+
+              <ExpenseList refreshTrigger={refreshTrigger} />
             </div>
           )}
         </TabsContent>
@@ -323,89 +353,206 @@ const FinancialReports: React.FC<FinancialReportsProps> = () => {
         </TabsContent>
 
         <TabsContent value="expenses">
-          <Card>
-            <CardHeader>
-              <CardTitle>Detail Pengeluaran</CardTitle>
-              <CardDescription>
-                {period === "daily"
-                  ? "Hari ini"
-                  : period === "weekly"
-                    ? "7 hari terakhir"
-                    : "6 bulan terakhir"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="h-96 w-full flex items-center justify-center">
-                  <p className="text-muted-foreground">
-                    Memuat data pengeluaran...
-                  </p>
-                </div>
-              ) : (
-                <div className="h-96 w-full flex flex-col justify-center bg-muted/20 rounded-md p-6">
-                  <div className="space-y-4">
-                    <div className="text-center mb-6">
-                      <p className="text-3xl font-bold text-red-600">
-                        {period === "weekly" && data?.weekly
-                          ? formatCurrency(
-                              data.weekly.expenses.reduce((a, b) => a + b, 0),
-                            )
-                          : period === "monthly" && data?.monthly
-                            ? formatCurrency(
-                                data.monthly.expenses.reduce(
-                                  (a, b) => a + b,
-                                  0,
-                                ),
-                              )
-                            : formatCurrency(getDailySummary(data).expenses)}
-                      </p>
-                      <p className="text-muted-foreground">Total Pengeluaran</p>
-                    </div>
-                    {period === "weekly" &&
-                      data?.weekly &&
-                      data.weekly.days.length > 0 && (
-                        <div className="space-y-2">
-                          <h4 className="font-medium">Pengeluaran Harian:</h4>
-                          {data.weekly.days.map((day, index) => (
-                            <div
-                              key={index}
-                              className="flex justify-between text-sm"
-                            >
-                              <span>{day}</span>
-                              <span className="font-medium">
-                                {formatCurrency(
-                                  data.weekly!.expenses[index] || 0,
-                                )}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    {period === "monthly" &&
-                      data?.monthly &&
-                      data.monthly.months.length > 0 && (
-                        <div className="space-y-2">
-                          <h4 className="font-medium">Pengeluaran Bulanan:</h4>
-                          {data.monthly.months.map((month, index) => (
-                            <div
-                              key={index}
-                              className="flex justify-between text-sm"
-                            >
-                              <span>{month}</span>
-                              <span className="font-medium">
-                                {formatCurrency(
-                                  data.monthly!.expenses[index] || 0,
-                                )}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Detail Pengeluaran</CardTitle>
+                <CardDescription>
+                  {period === "daily"
+                    ? "Hari ini"
+                    : period === "weekly"
+                      ? "7 hari terakhir"
+                      : "6 bulan terakhir"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {expenseLoading ? (
+                  <div className="h-96 w-full flex items-center justify-center">
+                    <p className="text-muted-foreground">
+                      Memuat data pengeluaran...
+                    </p>
                   </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Total Pengeluaran */}
+                    <div className="text-center p-6 bg-red-50 rounded-lg border border-red-200">
+                      <p className="text-3xl font-bold text-red-600 mb-2">
+                        {formatCurrency(expenseBreakdown?.grandTotal || 0)}
+                      </p>
+                      <p className="text-lg font-medium text-red-700">
+                        Total Pengeluaran
+                      </p>
+                    </div>
+
+                    {/* Expense Categories */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      {/* Biaya Operasional */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg text-blue-600">
+                            Biaya Operasional
+                          </CardTitle>
+                          <CardDescription className="text-xl font-bold text-blue-700">
+                            {formatCurrency(
+                              expenseBreakdown?.operational?.total || 0,
+                            )}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2">
+                            {expenseBreakdown?.operational?.byCategory &&
+                              Object.entries(
+                                expenseBreakdown.operational.byCategory,
+                              ).map(([category, amount]) => (
+                                <div
+                                  key={category}
+                                  className="flex justify-between text-sm"
+                                >
+                                  <span className="text-muted-foreground">
+                                    {category}
+                                  </span>
+                                  <span className="font-medium">
+                                    {formatCurrency(amount as number)}
+                                  </span>
+                                </div>
+                              ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Biaya Lainnya */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg text-orange-600">
+                            Biaya Lainnya
+                          </CardTitle>
+                          <CardDescription className="text-xl font-bold text-orange-700">
+                            {formatCurrency(
+                              expenseBreakdown?.other?.total || 0,
+                            )}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2">
+                            {expenseBreakdown?.other?.byCategory &&
+                              Object.entries(
+                                expenseBreakdown.other.byCategory,
+                              ).map(([category, amount]) => (
+                                <div
+                                  key={category}
+                                  className="flex justify-between text-sm"
+                                >
+                                  <span className="text-muted-foreground">
+                                    {category}
+                                  </span>
+                                  <span className="font-medium">
+                                    {formatCurrency(amount as number)}
+                                  </span>
+                                </div>
+                              ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Biaya Sparepart */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg text-green-600">
+                            Biaya Sparepart
+                          </CardTitle>
+                          <CardDescription className="text-xl font-bold text-green-700">
+                            {formatCurrency(
+                              expenseBreakdown?.spareParts?.total || 0,
+                            )}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2 max-h-48 overflow-y-auto">
+                            {expenseBreakdown?.spareParts?.byName &&
+                              Object.entries(
+                                expenseBreakdown.spareParts.byName,
+                              ).map(([name, data]) => (
+                                <div key={name} className="space-y-1">
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground font-medium">
+                                      {name}
+                                    </span>
+                                    <span className="font-medium">
+                                      {formatCurrency((data as any).cost)}
+                                    </span>
+                                  </div>
+                                  <div className="text-xs text-muted-foreground pl-2">
+                                    Qty: {(data as any).quantity}
+                                  </div>
+                                </div>
+                              ))}
+                            {(!expenseBreakdown?.spareParts?.byName ||
+                              Object.keys(expenseBreakdown.spareParts.byName)
+                                .length === 0) && (
+                              <p className="text-sm text-muted-foreground text-center py-4">
+                                Tidak ada sparepart yang digunakan
+                              </p>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* Summary Breakdown */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Ringkasan Pengeluaran</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center py-2 border-b">
+                            <span className="font-medium text-blue-600">
+                              Biaya Operasional
+                            </span>
+                            <span className="font-bold text-blue-700">
+                              {formatCurrency(
+                                expenseBreakdown?.operational?.total || 0,
+                              )}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center py-2 border-b">
+                            <span className="font-medium text-orange-600">
+                              Biaya Lainnya
+                            </span>
+                            <span className="font-bold text-orange-700">
+                              {formatCurrency(
+                                expenseBreakdown?.other?.total || 0,
+                              )}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center py-2 border-b">
+                            <span className="font-medium text-green-600">
+                              Biaya Sparepart
+                            </span>
+                            <span className="font-bold text-green-700">
+                              {formatCurrency(
+                                expenseBreakdown?.spareParts?.total || 0,
+                              )}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center py-3 bg-red-50 px-4 rounded-lg border-2 border-red-200">
+                            <span className="font-bold text-lg text-red-600">
+                              Total Pengeluaran
+                            </span>
+                            <span className="font-bold text-xl text-red-700">
+                              {formatCurrency(
+                                expenseBreakdown?.grandTotal || 0,
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="profit">

@@ -406,9 +406,9 @@ const InventoryManagement = () => {
                       <TableHead>Kategori</TableHead>
                       <TableHead>Stok Saat Ini</TableHead>
                       <TableHead>Stok Minimum</TableHead>
+                      <TableHead>Harga Beli</TableHead>
                       <TableHead>Harga Jual</TableHead>
                       <TableHead>Supplier</TableHead>
-                      <TableHead>Terakhir Diperbarui</TableHead>
                       <TableHead>Aksi</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -421,7 +421,7 @@ const InventoryManagement = () => {
                       </TableRow>
                     ) : filteredSpareParts.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-4">
+                        <TableCell colSpan={9} className="text-center py-4">
                           Tidak ada data sparepart
                         </TableCell>
                       </TableRow>
@@ -436,6 +436,10 @@ const InventoryManagement = () => {
                           <TableCell>{part.min_stock}</TableCell>
                           <TableCell>
                             Rp{" "}
+                            {(part.purchase_price || 0).toLocaleString("id-ID")}
+                          </TableCell>
+                          <TableCell>
+                            Rp{" "}
                             {(
                               part.sale_price ||
                               part.price ||
@@ -443,11 +447,6 @@ const InventoryManagement = () => {
                             ).toLocaleString("id-ID")}
                           </TableCell>
                           <TableCell>{part.supplier || "-"}</TableCell>
-                          <TableCell>
-                            {new Date(part.updated_at).toLocaleDateString(
-                              "id-ID",
-                            )}
-                          </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <Button
@@ -545,6 +544,7 @@ const InventoryManagement = () => {
                         <TableHead>Kategori</TableHead>
                         <TableHead>Stok Saat Ini</TableHead>
                         <TableHead>Stok Minimum</TableHead>
+                        <TableHead>Harga Beli</TableHead>
                         <TableHead>Harga Jual</TableHead>
                         <TableHead>Supplier</TableHead>
                         <TableHead>Aksi</TableHead>
@@ -559,6 +559,10 @@ const InventoryManagement = () => {
                             <Badge variant="destructive">{part.stock}</Badge>
                           </TableCell>
                           <TableCell>{part.min_stock}</TableCell>
+                          <TableCell>
+                            Rp{" "}
+                            {(part.purchase_price || 0).toLocaleString("id-ID")}
+                          </TableCell>
                           <TableCell>
                             Rp{" "}
                             {(

@@ -35,7 +35,12 @@ import {
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Badge } from "./ui/badge";
-import { supabase, Service, SparePart } from "../lib/supabase";
+import {
+  supabase,
+  Service,
+  SparePart,
+  ServicePartInsert,
+} from "../lib/supabase";
 
 interface ServiceWithDetails extends Service {
   customer_name?: string;
@@ -238,6 +243,63 @@ const CreateInvoice: React.FC<CreateInvoiceProps> = ({
         .insert(invoiceItemsData);
 
       if (itemsError) throw itemsError;
+
+      // Insert spare parts into service_parts table
+      const sparePartItems = invoiceItems.filter(
+        (item) => item.item_type === "sparepart" && item.item_id,
+      );
+
+      if (sparePartItems.length > 0) {
+        const servicePartsData: ServicePartInsert[] = sparePartItems.map(
+          (item) => ({
+            service_id: selectedService.id,
+            spare_part_id: item.item_id!,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+          }),
+        );
+
+        const { error: servicePartsError } = await supabase
+          .from("service_parts")
+          .insert(servicePartsData);
+
+        if (servicePartsError) throw servicePartsError;
+
+        // Update spare parts stock (reduce stock for used parts)
+        for (const item of sparePartItems) {
+          const { error: stockError } = await supabase.rpc(
+            "update_spare_part_stock",
+            {
+              spare_part_id: item.item_id!,
+              quantity_used: item.quantity,
+            },
+          );
+
+          // If RPC doesn't exist, update manually
+          if (stockError) {
+            const { data: currentStock } = await supabase
+              .from("spare_parts")
+              .select("stock")
+              .eq("id", item.item_id!)
+              .single();
+
+            if (currentStock) {
+              await supabase
+                .from("spare_parts")
+                .update({ stock: currentStock.stock - item.quantity })
+                .eq("id", item.item_id!);
+            }
+          }
+
+          // Create stock movement record
+          await supabase.from("stock_movements").insert({
+            spare_part_id: item.item_id!,
+            movement_type: "out",
+            quantity: item.quantity,
+            notes: `Digunakan untuk servis ${selectedService.customer_name} - Invoice ${invoiceNumber}`,
+          });
+        }
+      }
 
       // Create financial transaction
       await supabase.from("financial_transactions").insert({
