@@ -14,7 +14,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import { BarChart, LineChart, PieChart } from "lucide-react";
+import {
+  BarChart as BarChartIcon,
+  LineChart as LineChartIcon,
+  PieChart as PieChartIcon,
+} from "lucide-react";
+import {
+  BarChart,
+  LineChart,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  Bar,
+  Line,
+} from "recharts";
 import {
   getFinancialSummary,
   getFinancialTrends,
@@ -144,7 +160,7 @@ const FinancialReports: React.FC<FinancialReportsProps> = () => {
                   description={getPeriodDescription(period, "income")}
                   trend=""
                   trendUp={true}
-                  icon={<BarChart className="h-5 w-5 text-green-500" />}
+                  icon={<BarChartIcon className="h-5 w-5 text-green-500" />}
                 />
                 <SummaryCard
                   title="Total Pengeluaran"
@@ -152,7 +168,7 @@ const FinancialReports: React.FC<FinancialReportsProps> = () => {
                   description={getPeriodDescription(period, "expenses")}
                   trend=""
                   trendUp={false}
-                  icon={<LineChart className="h-5 w-5 text-red-500" />}
+                  icon={<LineChartIcon className="h-5 w-5 text-red-500" />}
                 />
                 <SummaryCard
                   title="Total Laba"
@@ -160,7 +176,7 @@ const FinancialReports: React.FC<FinancialReportsProps> = () => {
                   description={getPeriodDescription(period, "profit")}
                   trend=""
                   trendUp={getDailySummary(data).profit >= 0}
-                  icon={<PieChart className="h-5 w-5 text-blue-500" />}
+                  icon={<PieChartIcon className="h-5 w-5 text-blue-500" />}
                 />
               </div>
             </>
@@ -180,46 +196,135 @@ const FinancialReports: React.FC<FinancialReportsProps> = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="h-80">
-                  <div className="h-full w-full flex flex-col justify-center bg-muted/20 rounded-md p-4">
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-green-600">
-                          Pendapatan:
-                        </span>
-                        <span className="font-medium text-green-600">
-                          {period === "weekly" && data?.weekly
-                            ? `Rp ${data.weekly.income.reduce((a, b) => a + b, 0).toLocaleString("id-ID")}`
-                            : period === "monthly" && data?.monthly
-                              ? `Rp ${data.monthly.income.reduce((a, b) => a + b, 0).toLocaleString("id-ID")}`
-                              : formatCurrency(getDailySummary(data).income)}
-                        </span>
+                  <ResponsiveContainer width="100%" height="100%">
+                    {period === "daily" ? (
+                      <BarChart
+                        data={[
+                          {
+                            name: "Hari Ini",
+                            Pendapatan: getDailySummary(data).income,
+                            Pengeluaran: getDailySummary(data).expenses,
+                            Laba: getDailySummary(data).profit,
+                          },
+                        ]}
+                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis
+                          tickFormatter={(value) =>
+                            `${(value / 1000000).toFixed(1)}M`
+                          }
+                        />
+                        <Tooltip
+                          formatter={(value: number) => [
+                            formatCurrency(value),
+                            "",
+                          ]}
+                        />
+                        <Legend />
+                        <Bar dataKey="Pendapatan" fill="#22c55e" />
+                        <Bar dataKey="Pengeluaran" fill="#ef4444" />
+                        <Bar dataKey="Laba" fill="#3b82f6" />
+                      </BarChart>
+                    ) : period === "weekly" && data?.weekly ? (
+                      <LineChart
+                        data={data.weekly.days.map((day, index) => ({
+                          name: day,
+                          Pendapatan: data.weekly!.income[index] || 0,
+                          Pengeluaran: data.weekly!.expenses[index] || 0,
+                          Laba:
+                            (data.weekly!.income[index] || 0) -
+                            (data.weekly!.expenses[index] || 0),
+                        }))}
+                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis
+                          tickFormatter={(value) =>
+                            `${(value / 1000000).toFixed(1)}M`
+                          }
+                        />
+                        <Tooltip
+                          formatter={(value: number) => [
+                            formatCurrency(value),
+                            "",
+                          ]}
+                        />
+                        <Legend />
+                        <Line
+                          type="monotone"
+                          dataKey="Pendapatan"
+                          stroke="#22c55e"
+                          strokeWidth={2}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="Pengeluaran"
+                          stroke="#ef4444"
+                          strokeWidth={2}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="Laba"
+                          stroke="#3b82f6"
+                          strokeWidth={2}
+                        />
+                      </LineChart>
+                    ) : period === "monthly" && data?.monthly ? (
+                      <LineChart
+                        data={data.monthly.months.map((month, index) => ({
+                          name: month,
+                          Pendapatan: data.monthly!.income[index] || 0,
+                          Pengeluaran: data.monthly!.expenses[index] || 0,
+                          Laba:
+                            (data.monthly!.income[index] || 0) -
+                            (data.monthly!.expenses[index] || 0),
+                        }))}
+                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis
+                          tickFormatter={(value) =>
+                            `${(value / 1000000).toFixed(1)}M`
+                          }
+                        />
+                        <Tooltip
+                          formatter={(value: number) => [
+                            formatCurrency(value),
+                            "",
+                          ]}
+                        />
+                        <Legend />
+                        <Line
+                          type="monotone"
+                          dataKey="Pendapatan"
+                          stroke="#22c55e"
+                          strokeWidth={2}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="Pengeluaran"
+                          stroke="#ef4444"
+                          strokeWidth={2}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="Laba"
+                          stroke="#3b82f6"
+                          strokeWidth={2}
+                        />
+                      </LineChart>
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center">
+                        <p className="text-muted-foreground">
+                          Data tidak tersedia
+                        </p>
                       </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-red-600">
-                          Pengeluaran:
-                        </span>
-                        <span className="font-medium text-red-600">
-                          {period === "weekly" && data?.weekly
-                            ? `Rp ${data.weekly.expenses.reduce((a, b) => a + b, 0).toLocaleString("id-ID")}`
-                            : period === "monthly" && data?.monthly
-                              ? `Rp ${data.monthly.expenses.reduce((a, b) => a + b, 0).toLocaleString("id-ID")}`
-                              : formatCurrency(getDailySummary(data).expenses)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center border-t pt-2">
-                        <span className="text-sm font-medium">
-                          Laba Bersih:
-                        </span>
-                        <span className="font-bold">
-                          {period === "weekly" && data?.weekly
-                            ? `Rp ${(data.weekly.income.reduce((a, b) => a + b, 0) - data.weekly.expenses.reduce((a, b) => a + b, 0)).toLocaleString("id-ID")}`
-                            : period === "monthly" && data?.monthly
-                              ? `Rp ${(data.monthly.income.reduce((a, b) => a + b, 0) - data.monthly.expenses.reduce((a, b) => a + b, 0)).toLocaleString("id-ID")}`
-                              : formatCurrency(getDailySummary(data).profit)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                    )}
+                  </ResponsiveContainer>
                 </CardContent>
               </Card>
 
@@ -289,62 +394,271 @@ const FinancialReports: React.FC<FinancialReportsProps> = () => {
                   </p>
                 </div>
               ) : (
-                <div className="h-96 w-full flex flex-col justify-center bg-muted/20 rounded-md p-6">
-                  <div className="space-y-4">
-                    <div className="text-center mb-6">
-                      <p className="text-3xl font-bold text-green-600">
-                        {period === "weekly" && data?.weekly
+                <div className="space-y-6">
+                  {/* Total Pendapatan */}
+                  <div className="text-center p-6 bg-green-50 rounded-lg border border-green-200">
+                    <p className="text-3xl font-bold text-green-600 mb-2">
+                      {period === "weekly" && data?.weekly
+                        ? formatCurrency(
+                            data.weekly.income.reduce((a, b) => a + b, 0),
+                          )
+                        : period === "monthly" && data?.monthly
                           ? formatCurrency(
-                              data.weekly.income.reduce((a, b) => a + b, 0),
+                              data.monthly.income.reduce((a, b) => a + b, 0),
                             )
-                          : period === "monthly" && data?.monthly
-                            ? formatCurrency(
-                                data.monthly.income.reduce((a, b) => a + b, 0),
-                              )
-                            : formatCurrency(getDailySummary(data).income)}
-                      </p>
-                      <p className="text-muted-foreground">Total Pendapatan</p>
-                    </div>
-                    {period === "weekly" &&
-                      data?.weekly &&
-                      data.weekly.days.length > 0 && (
-                        <div className="space-y-2">
-                          <h4 className="font-medium">Pendapatan Harian:</h4>
-                          {data.weekly.days.map((day, index) => (
-                            <div
-                              key={index}
-                              className="flex justify-between text-sm"
-                            >
-                              <span>{day}</span>
-                              <span className="font-medium">
-                                {formatCurrency(
-                                  data.weekly!.income[index] || 0,
-                                )}
-                              </span>
+                          : formatCurrency(getDailySummary(data).income)}
+                    </p>
+                    <p className="text-lg font-medium text-green-700">
+                      Total Pendapatan
+                    </p>
+                  </div>
+
+                  {/* Grafik Pendapatan */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Grafik Pendapatan</CardTitle>
+                    </CardHeader>
+                    <CardContent className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        {period === "daily" ? (
+                          <BarChart
+                            data={[
+                              {
+                                name: "Hari Ini",
+                                Pendapatan: getDailySummary(data).income,
+                              },
+                            ]}
+                            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis
+                              tickFormatter={(value) =>
+                                `${(value / 1000000).toFixed(1)}M`
+                              }
+                            />
+                            <Tooltip
+                              formatter={(value: number) => [
+                                formatCurrency(value),
+                                "Pendapatan",
+                              ]}
+                            />
+                            <Bar dataKey="Pendapatan" fill="#22c55e" />
+                          </BarChart>
+                        ) : period === "weekly" && data?.weekly ? (
+                          <LineChart
+                            data={data.weekly.days.map((day, index) => ({
+                              name: day,
+                              Pendapatan: data.weekly!.income[index] || 0,
+                            }))}
+                            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis
+                              tickFormatter={(value) =>
+                                `${(value / 1000000).toFixed(1)}M`
+                              }
+                            />
+                            <Tooltip
+                              formatter={(value: number) => [
+                                formatCurrency(value),
+                                "Pendapatan",
+                              ]}
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="Pendapatan"
+                              stroke="#22c55e"
+                              strokeWidth={3}
+                            />
+                          </LineChart>
+                        ) : period === "monthly" && data?.monthly ? (
+                          <LineChart
+                            data={data.monthly.months.map((month, index) => ({
+                              name: month,
+                              Pendapatan: data.monthly!.income[index] || 0,
+                            }))}
+                            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis
+                              tickFormatter={(value) =>
+                                `${(value / 1000000).toFixed(1)}M`
+                              }
+                            />
+                            <Tooltip
+                              formatter={(value: number) => [
+                                formatCurrency(value),
+                                "Pendapatan",
+                              ]}
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="Pendapatan"
+                              stroke="#22c55e"
+                              strokeWidth={3}
+                            />
+                          </LineChart>
+                        ) : (
+                          <div className="h-full w-full flex items-center justify-center">
+                            <p className="text-muted-foreground">
+                              Data tidak tersedia
+                            </p>
+                          </div>
+                        )}
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+
+                  {/* Detail Pendapatan */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Breakdown Harian/Mingguan/Bulanan */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>
+                          {period === "daily"
+                            ? "Detail Hari Ini"
+                            : period === "weekly"
+                              ? "Pendapatan Harian (7 Hari)"
+                              : "Pendapatan Bulanan (6 Bulan)"}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2 max-h-64 overflow-y-auto">
+                          {period === "weekly" &&
+                            data?.weekly &&
+                            data.weekly.days.length > 0 &&
+                            data.weekly.days.map((day, index) => (
+                              <div
+                                key={index}
+                                className="flex justify-between text-sm py-1 border-b border-gray-100"
+                              >
+                                <span className="font-medium">{day}</span>
+                                <span className="text-green-600 font-medium">
+                                  {formatCurrency(
+                                    data.weekly!.income[index] || 0,
+                                  )}
+                                </span>
+                              </div>
+                            ))}
+                          {period === "monthly" &&
+                            data?.monthly &&
+                            data.monthly.months.length > 0 &&
+                            data.monthly.months.map((month, index) => (
+                              <div
+                                key={index}
+                                className="flex justify-between text-sm py-1 border-b border-gray-100"
+                              >
+                                <span className="font-medium">{month}</span>
+                                <span className="text-green-600 font-medium">
+                                  {formatCurrency(
+                                    data.monthly!.income[index] || 0,
+                                  )}
+                                </span>
+                              </div>
+                            ))}
+                          {period === "daily" && (
+                            <div className="text-center py-8">
+                              <p className="text-2xl font-bold text-green-600 mb-2">
+                                {formatCurrency(getDailySummary(data).income)}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Pendapatan Hari Ini
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-2">
+                                Dari {getDailySummary(data).transactions}{" "}
+                                transaksi
+                              </p>
                             </div>
-                          ))}
+                          )}
                         </div>
-                      )}
-                    {period === "monthly" &&
-                      data?.monthly &&
-                      data.monthly.months.length > 0 && (
-                        <div className="space-y-2">
-                          <h4 className="font-medium">Pendapatan Bulanan:</h4>
-                          {data.monthly.months.map((month, index) => (
-                            <div
-                              key={index}
-                              className="flex justify-between text-sm"
-                            >
-                              <span>{month}</span>
-                              <span className="font-medium">
-                                {formatCurrency(
-                                  data.monthly!.income[index] || 0,
-                                )}
-                              </span>
-                            </div>
-                          ))}
+                      </CardContent>
+                    </Card>
+
+                    {/* Statistik Pendapatan */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Statistik Pendapatan</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          <div className="flex justify-between items-center py-2 border-b">
+                            <span className="text-sm font-medium">
+                              Rata-rata per Hari
+                            </span>
+                            <span className="font-bold text-green-600">
+                              {period === "weekly" && data?.weekly
+                                ? formatCurrency(
+                                    data.weekly.income.reduce(
+                                      (a, b) => a + b,
+                                      0,
+                                    ) / 7,
+                                  )
+                                : period === "monthly" && data?.monthly
+                                  ? formatCurrency(
+                                      data.monthly.income.reduce(
+                                        (a, b) => a + b,
+                                        0,
+                                      ) / 30,
+                                    )
+                                  : formatCurrency(
+                                      getDailySummary(data).income,
+                                    )}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center py-2 border-b">
+                            <span className="text-sm font-medium">
+                              Pendapatan Tertinggi
+                            </span>
+                            <span className="font-bold text-green-600">
+                              {period === "weekly" && data?.weekly
+                                ? formatCurrency(
+                                    Math.max(...data.weekly.income),
+                                  )
+                                : period === "monthly" && data?.monthly
+                                  ? formatCurrency(
+                                      Math.max(...data.monthly.income),
+                                    )
+                                  : formatCurrency(
+                                      getDailySummary(data).income,
+                                    )}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center py-2 border-b">
+                            <span className="text-sm font-medium">
+                              Pendapatan Terendah
+                            </span>
+                            <span className="font-bold text-green-600">
+                              {period === "weekly" && data?.weekly
+                                ? formatCurrency(
+                                    Math.min(...data.weekly.income),
+                                  )
+                                : period === "monthly" && data?.monthly
+                                  ? formatCurrency(
+                                      Math.min(...data.monthly.income),
+                                    )
+                                  : formatCurrency(
+                                      getDailySummary(data).income,
+                                    )}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center py-2">
+                            <span className="text-sm font-medium">
+                              Total Transaksi
+                            </span>
+                            <span className="font-bold text-blue-600">
+                              {period === "daily"
+                                ? getDailySummary(data).transactions
+                                : period === "weekly"
+                                  ? getDailySummary(data).transactions * 7
+                                  : getDailySummary(data).transactions * 30}
+                            </span>
+                          </div>
                         </div>
-                      )}
+                      </CardContent>
+                    </Card>
                   </div>
                 </div>
               )}
@@ -573,89 +887,395 @@ const FinancialReports: React.FC<FinancialReportsProps> = () => {
                   <p className="text-muted-foreground">Memuat data laba...</p>
                 </div>
               ) : (
-                <div className="h-96 w-full flex flex-col justify-center bg-muted/20 rounded-md p-6">
-                  <div className="space-y-4">
-                    <div className="text-center mb-6">
-                      <p
-                        className={`text-3xl font-bold ${
-                          (period === "weekly" && data?.weekly
-                            ? data.weekly.income.reduce((a, b) => a + b, 0) -
-                              data.weekly.expenses.reduce((a, b) => a + b, 0)
-                            : period === "monthly" && data?.monthly
-                              ? data.monthly.income.reduce((a, b) => a + b, 0) -
-                                data.monthly.expenses.reduce((a, b) => a + b, 0)
-                              : getDailySummary(data).profit) >= 0
-                            ? "text-green-600"
-                            : "text-red-600"
-                        }`}
-                      >
-                        {period === "weekly" && data?.weekly
-                          ? formatCurrency(
-                              data.weekly.income.reduce((a, b) => a + b, 0) -
-                                data.weekly.expenses.reduce((a, b) => a + b, 0),
-                            )
+                <div className="space-y-6">
+                  {/* Total Laba */}
+                  <div
+                    className={`text-center p-6 rounded-lg border-2 ${
+                      (period === "weekly" && data?.weekly
+                        ? data.weekly.income.reduce((a, b) => a + b, 0) -
+                          data.weekly.expenses.reduce((a, b) => a + b, 0)
+                        : period === "monthly" && data?.monthly
+                          ? data.monthly.income.reduce((a, b) => a + b, 0) -
+                            data.monthly.expenses.reduce((a, b) => a + b, 0)
+                          : getDailySummary(data).profit) >= 0
+                        ? "bg-green-50 border-green-200"
+                        : "bg-red-50 border-red-200"
+                    }`}
+                  >
+                    <p
+                      className={`text-3xl font-bold mb-2 ${
+                        (period === "weekly" && data?.weekly
+                          ? data.weekly.income.reduce((a, b) => a + b, 0) -
+                            data.weekly.expenses.reduce((a, b) => a + b, 0)
                           : period === "monthly" && data?.monthly
-                            ? formatCurrency(
-                                data.monthly.income.reduce((a, b) => a + b, 0) -
-                                  data.monthly.expenses.reduce(
-                                    (a, b) => a + b,
-                                    0,
-                                  ),
-                              )
-                            : formatCurrency(getDailySummary(data).profit)}
-                      </p>
-                      <p className="text-muted-foreground">Total Laba Bersih</p>
-                    </div>
-                    {period === "weekly" &&
-                      data?.weekly &&
-                      data.weekly.days.length > 0 && (
-                        <div className="space-y-2">
-                          <h4 className="font-medium">Laba Harian:</h4>
-                          {data.weekly.days.map((day, index) => {
-                            const profit =
-                              (data.weekly!.income[index] || 0) -
-                              (data.weekly!.expenses[index] || 0);
-                            return (
-                              <div
-                                key={index}
-                                className="flex justify-between text-sm"
-                              >
-                                <span>{day}</span>
-                                <span
-                                  className={`font-medium ${profit >= 0 ? "text-green-600" : "text-red-600"}`}
+                            ? data.monthly.income.reduce((a, b) => a + b, 0) -
+                              data.monthly.expenses.reduce((a, b) => a + b, 0)
+                            : getDailySummary(data).profit) >= 0
+                          ? "text-green-600"
+                          : "text-red-600"
+                      }`}
+                    >
+                      {period === "weekly" && data?.weekly
+                        ? formatCurrency(
+                            data.weekly.income.reduce((a, b) => a + b, 0) -
+                              data.weekly.expenses.reduce((a, b) => a + b, 0),
+                          )
+                        : period === "monthly" && data?.monthly
+                          ? formatCurrency(
+                              data.monthly.income.reduce((a, b) => a + b, 0) -
+                                data.monthly.expenses.reduce(
+                                  (a, b) => a + b,
+                                  0,
+                                ),
+                            )
+                          : formatCurrency(getDailySummary(data).profit)}
+                    </p>
+                    <p
+                      className={`text-lg font-medium ${
+                        (period === "weekly" && data?.weekly
+                          ? data.weekly.income.reduce((a, b) => a + b, 0) -
+                            data.weekly.expenses.reduce((a, b) => a + b, 0)
+                          : period === "monthly" && data?.monthly
+                            ? data.monthly.income.reduce((a, b) => a + b, 0) -
+                              data.monthly.expenses.reduce((a, b) => a + b, 0)
+                            : getDailySummary(data).profit) >= 0
+                          ? "text-green-700"
+                          : "text-red-700"
+                      }`}
+                    >
+                      Total Laba Bersih
+                    </p>
+                  </div>
+
+                  {/* Grafik Laba */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Grafik Laba</CardTitle>
+                    </CardHeader>
+                    <CardContent className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        {period === "daily" ? (
+                          <BarChart
+                            data={[
+                              {
+                                name: "Hari Ini",
+                                Laba: getDailySummary(data).profit,
+                              },
+                            ]}
+                            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis
+                              tickFormatter={(value) =>
+                                `${(value / 1000000).toFixed(1)}M`
+                              }
+                            />
+                            <Tooltip
+                              formatter={(value: number) => [
+                                formatCurrency(value),
+                                "Laba",
+                              ]}
+                            />
+                            <Bar
+                              dataKey="Laba"
+                              fill={
+                                getDailySummary(data).profit >= 0
+                                  ? "#22c55e"
+                                  : "#ef4444"
+                              }
+                            />
+                          </BarChart>
+                        ) : period === "weekly" && data?.weekly ? (
+                          <LineChart
+                            data={data.weekly.days.map((day, index) => {
+                              const profit =
+                                (data.weekly!.income[index] || 0) -
+                                (data.weekly!.expenses[index] || 0);
+                              return {
+                                name: day,
+                                Laba: profit,
+                              };
+                            })}
+                            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis
+                              tickFormatter={(value) =>
+                                `${(value / 1000000).toFixed(1)}M`
+                              }
+                            />
+                            <Tooltip
+                              formatter={(value: number) => [
+                                formatCurrency(value),
+                                "Laba",
+                              ]}
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="Laba"
+                              stroke="#3b82f6"
+                              strokeWidth={3}
+                            />
+                          </LineChart>
+                        ) : period === "monthly" && data?.monthly ? (
+                          <LineChart
+                            data={data.monthly.months.map((month, index) => {
+                              const profit =
+                                (data.monthly!.income[index] || 0) -
+                                (data.monthly!.expenses[index] || 0);
+                              return {
+                                name: month,
+                                Laba: profit,
+                              };
+                            })}
+                            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis
+                              tickFormatter={(value) =>
+                                `${(value / 1000000).toFixed(1)}M`
+                              }
+                            />
+                            <Tooltip
+                              formatter={(value: number) => [
+                                formatCurrency(value),
+                                "Laba",
+                              ]}
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="Laba"
+                              stroke="#3b82f6"
+                              strokeWidth={3}
+                            />
+                          </LineChart>
+                        ) : (
+                          <div className="h-full w-full flex items-center justify-center">
+                            <p className="text-muted-foreground">
+                              Data tidak tersedia
+                            </p>
+                          </div>
+                        )}
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+
+                  {/* Detail Laba */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Breakdown Laba */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>
+                          {period === "daily"
+                            ? "Detail Laba Hari Ini"
+                            : period === "weekly"
+                              ? "Laba Harian (7 Hari)"
+                              : "Laba Bulanan (6 Bulan)"}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2 max-h-64 overflow-y-auto">
+                          {period === "weekly" &&
+                            data?.weekly &&
+                            data.weekly.days.length > 0 &&
+                            data.weekly.days.map((day, index) => {
+                              const profit =
+                                (data.weekly!.income[index] || 0) -
+                                (data.weekly!.expenses[index] || 0);
+                              return (
+                                <div
+                                  key={index}
+                                  className="flex justify-between text-sm py-1 border-b border-gray-100"
                                 >
-                                  {formatCurrency(profit)}
+                                  <span className="font-medium">{day}</span>
+                                  <span
+                                    className={`font-medium ${profit >= 0 ? "text-green-600" : "text-red-600"}`}
+                                  >
+                                    {formatCurrency(profit)}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          {period === "monthly" &&
+                            data?.monthly &&
+                            data.monthly.months.length > 0 &&
+                            data.monthly.months.map((month, index) => {
+                              const profit =
+                                (data.monthly!.income[index] || 0) -
+                                (data.monthly!.expenses[index] || 0);
+                              return (
+                                <div
+                                  key={index}
+                                  className="flex justify-between text-sm py-1 border-b border-gray-100"
+                                >
+                                  <span className="font-medium">{month}</span>
+                                  <span
+                                    className={`font-medium ${profit >= 0 ? "text-green-600" : "text-red-600"}`}
+                                  >
+                                    {formatCurrency(profit)}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          {period === "daily" && (
+                            <div className="space-y-3">
+                              <div className="flex justify-between py-2 border-b">
+                                <span className="text-sm font-medium text-green-600">
+                                  Pendapatan
+                                </span>
+                                <span className="font-bold text-green-600">
+                                  {formatCurrency(getDailySummary(data).income)}
                                 </span>
                               </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    {period === "monthly" &&
-                      data?.monthly &&
-                      data.monthly.months.length > 0 && (
-                        <div className="space-y-2">
-                          <h4 className="font-medium">Laba Bulanan:</h4>
-                          {data.monthly.months.map((month, index) => {
-                            const profit =
-                              (data.monthly!.income[index] || 0) -
-                              (data.monthly!.expenses[index] || 0);
-                            return (
-                              <div
-                                key={index}
-                                className="flex justify-between text-sm"
-                              >
-                                <span>{month}</span>
-                                <span
-                                  className={`font-medium ${profit >= 0 ? "text-green-600" : "text-red-600"}`}
-                                >
-                                  {formatCurrency(profit)}
+                              <div className="flex justify-between py-2 border-b">
+                                <span className="text-sm font-medium text-red-600">
+                                  Pengeluaran
+                                </span>
+                                <span className="font-bold text-red-600">
+                                  {formatCurrency(
+                                    getDailySummary(data).expenses,
+                                  )}
                                 </span>
                               </div>
-                            );
-                          })}
+                              <div
+                                className={`flex justify-between py-2 border-t-2 ${getDailySummary(data).profit >= 0 ? "border-green-200" : "border-red-200"}`}
+                              >
+                                <span className="text-sm font-bold">
+                                  Laba Bersih
+                                </span>
+                                <span
+                                  className={`font-bold text-lg ${getDailySummary(data).profit >= 0 ? "text-green-600" : "text-red-600"}`}
+                                >
+                                  {formatCurrency(getDailySummary(data).profit)}
+                                </span>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Analisis Laba */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Analisis Laba</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          <div className="flex justify-between items-center py-2 border-b">
+                            <span className="text-sm font-medium">
+                              Margin Laba
+                            </span>
+                            <span className="font-bold text-blue-600">
+                              {period === "weekly" && data?.weekly
+                                ? `${(((data.weekly.income.reduce((a, b) => a + b, 0) - data.weekly.expenses.reduce((a, b) => a + b, 0)) / data.weekly.income.reduce((a, b) => a + b, 0)) * 100).toFixed(1)}%`
+                                : period === "monthly" && data?.monthly
+                                  ? `${(((data.monthly.income.reduce((a, b) => a + b, 0) - data.monthly.expenses.reduce((a, b) => a + b, 0)) / data.monthly.income.reduce((a, b) => a + b, 0)) * 100).toFixed(1)}%`
+                                  : `${((getDailySummary(data).profit / getDailySummary(data).income) * 100).toFixed(1)}%`}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center py-2 border-b">
+                            <span className="text-sm font-medium">
+                              Laba Tertinggi
+                            </span>
+                            <span className="font-bold text-green-600">
+                              {period === "weekly" && data?.weekly
+                                ? formatCurrency(
+                                    Math.max(
+                                      ...data.weekly.days.map(
+                                        (_, index) =>
+                                          (data.weekly!.income[index] || 0) -
+                                          (data.weekly!.expenses[index] || 0),
+                                      ),
+                                    ),
+                                  )
+                                : period === "monthly" && data?.monthly
+                                  ? formatCurrency(
+                                      Math.max(
+                                        ...data.monthly.months.map(
+                                          (_, index) =>
+                                            (data.monthly!.income[index] || 0) -
+                                            (data.monthly!.expenses[index] ||
+                                              0),
+                                        ),
+                                      ),
+                                    )
+                                  : formatCurrency(
+                                      getDailySummary(data).profit,
+                                    )}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center py-2 border-b">
+                            <span className="text-sm font-medium">
+                              Laba Terendah
+                            </span>
+                            <span className="font-bold text-red-600">
+                              {period === "weekly" && data?.weekly
+                                ? formatCurrency(
+                                    Math.min(
+                                      ...data.weekly.days.map(
+                                        (_, index) =>
+                                          (data.weekly!.income[index] || 0) -
+                                          (data.weekly!.expenses[index] || 0),
+                                      ),
+                                    ),
+                                  )
+                                : period === "monthly" && data?.monthly
+                                  ? formatCurrency(
+                                      Math.min(
+                                        ...data.monthly.months.map(
+                                          (_, index) =>
+                                            (data.monthly!.income[index] || 0) -
+                                            (data.monthly!.expenses[index] ||
+                                              0),
+                                        ),
+                                      ),
+                                    )
+                                  : formatCurrency(
+                                      getDailySummary(data).profit,
+                                    )}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center py-2">
+                            <span className="text-sm font-medium">
+                              Rata-rata Laba
+                            </span>
+                            <span className="font-bold text-blue-600">
+                              {period === "weekly" && data?.weekly
+                                ? formatCurrency(
+                                    (data.weekly.income.reduce(
+                                      (a, b) => a + b,
+                                      0,
+                                    ) -
+                                      data.weekly.expenses.reduce(
+                                        (a, b) => a + b,
+                                        0,
+                                      )) /
+                                      7,
+                                  )
+                                : period === "monthly" && data?.monthly
+                                  ? formatCurrency(
+                                      (data.monthly.income.reduce(
+                                        (a, b) => a + b,
+                                        0,
+                                      ) -
+                                        data.monthly.expenses.reduce(
+                                          (a, b) => a + b,
+                                          0,
+                                        )) /
+                                        6,
+                                    )
+                                  : formatCurrency(
+                                      getDailySummary(data).profit,
+                                    )}
+                            </span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
                 </div>
               )}

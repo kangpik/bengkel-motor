@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -12,56 +12,167 @@ import { BarChart, LineChart, PieChart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link } from "react-router-dom";
+import { supabase, getFinancialSummary } from "@/lib/supabase";
 
 const Home = () => {
-  // Mock data for dashboard
-  const serviceQueue = [
-    {
-      id: 1,
-      customer: "Budi Santoso",
-      vehicle: "Honda Beat",
-      issue: "Ganti oli",
-      status: "waiting",
-      time: "09:00",
-    },
-    {
-      id: 2,
-      customer: "Dewi Lestari",
-      vehicle: "Yamaha Nmax",
-      issue: "Service rutin",
-      status: "in-progress",
-      time: "10:30",
-    },
-    {
-      id: 3,
-      customer: "Ahmad Rizki",
-      vehicle: "Suzuki Satria",
-      issue: "Rem blong",
-      status: "waiting",
-      time: "11:15",
-    },
-    {
-      id: 4,
-      customer: "Siti Nurhaliza",
-      vehicle: "Honda Vario",
-      issue: "Ganti ban",
-      status: "completed",
-      time: "08:45",
-    },
-  ];
+  const [serviceQueue, setServiceQueue] = useState([]);
+  const [lowStockItems, setLowStockItems] = useState([]);
+  const [dailyTransactions, setDailyTransactions] = useState([]);
+  const [financialSummary, setFinancialSummary] = useState({
+    income: 0,
+    expenses: 0,
+    profit: 0,
+    transactions: 0,
+  });
+  const [loading, setLoading] = useState(true);
 
-  const lowStockItems = [
-    { id: 1, name: "Oli Mesin", stock: 3, minimum: 5 },
-    { id: 2, name: "Filter Udara", stock: 2, minimum: 10 },
-    { id: 3, name: "Kampas Rem", stock: 4, minimum: 8 },
-  ];
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
 
-  const dailyTransactions = [
-    { id: 1, type: "Service", amount: 150000, time: "09:30" },
-    { id: 2, type: "Sparepart", amount: 75000, time: "10:45" },
-    { id: 3, type: "Service", amount: 200000, time: "12:15" },
-    { id: 4, type: "Sparepart", amount: 50000, time: "14:30" },
-  ];
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+
+      // Fetch service queue (services from today and recent days)
+      const { data: servicesData, error: servicesError } = await supabase
+        .from("services")
+        .select(
+          `
+          id,
+          complaint,
+          status,
+          service_date,
+          customers!inner(name),
+          vehicles!inner(brand, model, plate_number)
+        `,
+        )
+        .gte(
+          "service_date",
+          new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .split("T")[0],
+        )
+        .order("service_date", { ascending: false })
+        .limit(10);
+
+      if (servicesError) throw servicesError;
+
+      const formattedServices =
+        servicesData?.map((service) => ({
+          id: service.id,
+          customer: service.customers?.name || "Unknown",
+          vehicle:
+            `${service.vehicles?.brand || ""} ${service.vehicles?.model || ""}`.trim() ||
+            service.vehicles?.plate_number ||
+            "Unknown",
+          issue: service.complaint,
+          status: service.status,
+          time: new Date(service.service_date).toLocaleTimeString("id-ID", {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        })) || [];
+
+      setServiceQueue(formattedServices);
+
+      // Fetch low stock items
+      const { data: sparePartsData, error: sparePartsError } = await supabase
+        .from("spare_parts")
+        .select("id, name, stock, min_stock")
+        .order("stock", { ascending: true });
+
+      if (sparePartsError) throw sparePartsError;
+
+      const formattedLowStock =
+        sparePartsData
+          ?.filter((item) => item.stock < item.min_stock)
+          ?.map((item) => ({
+            id: item.id,
+            name: item.name,
+            stock: item.stock,
+            minimum: item.min_stock,
+          }))
+          ?.slice(0, 10) || [];
+
+      setLowStockItems(formattedLowStock);
+
+      // Fetch today's transactions (payments)
+      const today = new Date().toISOString().split("T")[0];
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from("payments")
+        .select(
+          `
+          id,
+          amount,
+          payment_date,
+          payment_method,
+          invoices!inner(
+            invoice_items(
+              item_type
+            )
+          )
+        `,
+        )
+        .gte("payment_date", today)
+        .lte("payment_date", today + "T23:59:59")
+        .eq("status", "completed")
+        .order("payment_date", { ascending: false });
+
+      if (paymentsError) throw paymentsError;
+
+      const formattedTransactions =
+        paymentsData?.map((payment) => {
+          const hasService = payment.invoices?.invoice_items?.some(
+            (item) => item.item_type === "service",
+          );
+          const hasSparepart = payment.invoices?.invoice_items?.some(
+            (item) => item.item_type === "sparepart",
+          );
+
+          let type = "Payment";
+          if (hasService && hasSparepart) {
+            type = "Service + Sparepart";
+          } else if (hasService) {
+            type = "Service";
+          } else if (hasSparepart) {
+            type = "Sparepart";
+          }
+
+          return {
+            id: payment.id,
+            type,
+            amount: payment.amount,
+            time: payment.payment_date
+              ? new Date(payment.payment_date).toLocaleTimeString("id-ID", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "--:--",
+          };
+        }) || [];
+
+      setDailyTransactions(formattedTransactions);
+
+      // Fetch financial summary
+      const summary = await getFinancialSummary("daily");
+      setFinancialSummary(summary);
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+      // Set empty arrays on error to prevent crashes
+      setServiceQueue([]);
+      setLowStockItems([]);
+      setDailyTransactions([]);
+      setFinancialSummary({
+        income: 0,
+        expenses: 0,
+        profit: 0,
+        transactions: 0,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -245,25 +356,35 @@ const Home = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {serviceQueue.map((service) => (
-                  <div
-                    key={service.id}
-                    className="flex justify-between items-center p-3 border rounded-lg"
-                  >
-                    <div>
-                      <p className="font-medium">{service.customer}</p>
-                      <p className="text-sm text-gray-500">
-                        {service.vehicle} - {service.issue}
-                      </p>
-                    </div>
-                    <div className="flex flex-col items-end">
-                      {getStatusBadge(service.status)}
-                      <span className="text-xs text-gray-500 mt-1">
-                        {service.time}
-                      </span>
-                    </div>
+                {loading ? (
+                  <div className="text-center py-4">
+                    <p className="text-gray-500">Memuat data...</p>
                   </div>
-                ))}
+                ) : serviceQueue.length === 0 ? (
+                  <div className="text-center py-4">
+                    <p className="text-gray-500">Tidak ada antrian servis</p>
+                  </div>
+                ) : (
+                  serviceQueue.map((service) => (
+                    <div
+                      key={service.id}
+                      className="flex justify-between items-center p-3 border rounded-lg"
+                    >
+                      <div>
+                        <p className="font-medium">{service.customer}</p>
+                        <p className="text-sm text-gray-500">
+                          {service.vehicle} - {service.issue}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        {getStatusBadge(service.status)}
+                        <span className="text-xs text-gray-500 mt-1">
+                          {service.time}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
               <div className="mt-4">
                 <Button variant="outline" className="w-full">
@@ -283,33 +404,45 @@ const Home = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {dailyTransactions.map((transaction) => (
-                  <div
-                    key={transaction.id}
-                    className="flex justify-between items-center p-3 border rounded-lg"
-                  >
-                    <div>
-                      <p className="font-medium">{transaction.type}</p>
-                      <p className="text-xs text-gray-500">
-                        {transaction.time}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-right">
-                        Rp {transaction.amount.toLocaleString("id-ID")}
-                      </p>
-                    </div>
+                {loading ? (
+                  <div className="text-center py-4">
+                    <p className="text-gray-500">Memuat data...</p>
                   </div>
-                ))}
+                ) : dailyTransactions.length === 0 ? (
+                  <div className="text-center py-4">
+                    <p className="text-gray-500">
+                      Belum ada transaksi hari ini
+                    </p>
+                  </div>
+                ) : (
+                  dailyTransactions.map((transaction) => (
+                    <div
+                      key={transaction.id}
+                      className="flex justify-between items-center p-3 border rounded-lg"
+                    >
+                      <div>
+                        <p className="font-medium">{transaction.type}</p>
+                        <p className="text-xs text-gray-500">
+                          {transaction.time}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-right">
+                          Rp {transaction.amount.toLocaleString("id-ID")}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
               <div className="mt-6 pt-4 border-t">
                 <div className="flex justify-between">
                   <p className="font-medium">Total Hari Ini</p>
                   <p className="font-bold">
                     Rp{" "}
-                    {dailyTransactions
-                      .reduce((sum, item) => sum + item.amount, 0)
-                      .toLocaleString("id-ID")}
+                    {loading
+                      ? "0"
+                      : financialSummary.income.toLocaleString("id-ID")}
                   </p>
                 </div>
               </div>
@@ -326,27 +459,37 @@ const Home = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {lowStockItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex justify-between items-center p-3 border rounded-lg"
-                  >
-                    <div>
-                      <p className="font-medium">{item.name}</p>
-                      <p className="text-xs text-gray-500">
-                        Minimum: {item.minimum}
-                      </p>
-                    </div>
-                    <div>
-                      <Badge
-                        variant="outline"
-                        className="bg-red-100 text-red-800"
-                      >
-                        Stok: {item.stock}
-                      </Badge>
-                    </div>
+                {loading ? (
+                  <div className="text-center py-4">
+                    <p className="text-gray-500">Memuat data...</p>
                   </div>
-                ))}
+                ) : lowStockItems.length === 0 ? (
+                  <div className="text-center py-4">
+                    <p className="text-gray-500">Semua stok aman</p>
+                  </div>
+                ) : (
+                  lowStockItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex justify-between items-center p-3 border rounded-lg"
+                    >
+                      <div>
+                        <p className="font-medium">{item.name}</p>
+                        <p className="text-xs text-gray-500">
+                          Minimum: {item.minimum}
+                        </p>
+                      </div>
+                      <div>
+                        <Badge
+                          variant="outline"
+                          className="bg-red-100 text-red-800"
+                        >
+                          Stok: {item.stock}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
               <div className="mt-4">
                 <Button variant="outline" className="w-full">
@@ -374,11 +517,46 @@ const Home = () => {
                   <TabsTrigger value="monthly">Bulanan</TabsTrigger>
                 </TabsList>
                 <TabsContent value="daily" className="space-y-4">
-                  <div className="h-[200px] flex items-center justify-center bg-gray-50 rounded-lg">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div className="bg-green-50 p-4 rounded-lg">
+                      <h4 className="text-sm font-medium text-green-800">
+                        Pendapatan
+                      </h4>
+                      <p className="text-2xl font-bold text-green-900">
+                        Rp{" "}
+                        {loading
+                          ? "0"
+                          : financialSummary.income.toLocaleString("id-ID")}
+                      </p>
+                    </div>
+                    <div className="bg-red-50 p-4 rounded-lg">
+                      <h4 className="text-sm font-medium text-red-800">
+                        Pengeluaran
+                      </h4>
+                      <p className="text-2xl font-bold text-red-900">
+                        Rp{" "}
+                        {loading
+                          ? "0"
+                          : financialSummary.expenses.toLocaleString("id-ID")}
+                      </p>
+                    </div>
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <h4 className="text-sm font-medium text-blue-800">
+                        Laba
+                      </h4>
+                      <p className="text-2xl font-bold text-blue-900">
+                        Rp{" "}
+                        {loading
+                          ? "0"
+                          : financialSummary.profit.toLocaleString("id-ID")}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="h-[120px] flex items-center justify-center bg-gray-50 rounded-lg">
                     <div className="text-center">
-                      <BarChart className="h-16 w-16 text-gray-400 mx-auto" />
-                      <p className="text-gray-500 mt-2">
-                        Grafik pendapatan harian akan ditampilkan di sini
+                      <BarChart className="h-12 w-12 text-gray-400 mx-auto" />
+                      <p className="text-gray-500 mt-2 text-sm">
+                        Grafik detail tersedia di halaman Laporan Keuangan
                       </p>
                     </div>
                   </div>
