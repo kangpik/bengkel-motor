@@ -108,20 +108,45 @@ export const getFinancialSummary = async (
 ) => {
   const today = new Date();
   let startDate: Date;
+  let endDate: Date;
 
   switch (period) {
     case "daily":
+      // Set to start of today (00:00:00)
       startDate = new Date(
         today.getFullYear(),
         today.getMonth(),
         today.getDate(),
       );
+      // Set to start of tomorrow (00:00:00) for exclusive upper bound
+      endDate = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate() + 1,
+      );
       break;
     case "weekly":
-      startDate = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+      // Last 7 days including today
+      startDate = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000);
+      startDate = new Date(
+        startDate.getFullYear(),
+        startDate.getMonth(),
+        startDate.getDate(),
+      );
+      endDate = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate() + 1,
+      );
       break;
     case "monthly":
+      // Current month from 1st to today
       startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+      endDate = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate() + 1,
+      );
       break;
   }
 
@@ -131,6 +156,7 @@ export const getFinancialSummary = async (
       .from("payments")
       .select("amount, payment_date")
       .gte("payment_date", startDate.toISOString().split("T")[0])
+      .lt("payment_date", endDate.toISOString().split("T")[0])
       .eq("status", "completed");
 
     if (paymentsError) throw paymentsError;
@@ -145,7 +171,8 @@ export const getFinancialSummary = async (
       .from("financial_transactions")
       .select("amount")
       .eq("transaction_type", "expense")
-      .gte("transaction_date", startDate.toISOString().split("T")[0]);
+      .gte("transaction_date", startDate.toISOString().split("T")[0])
+      .lt("transaction_date", endDate.toISOString().split("T")[0]);
 
     if (expenseError) throw expenseError;
 
@@ -169,7 +196,8 @@ export const getFinancialSummary = async (
         )
       `,
       )
-      .gte("services.service_date", startDate.toISOString().split("T")[0]);
+      .gte("services.service_date", startDate.toISOString().split("T")[0])
+      .lt("services.service_date", endDate.toISOString().split("T")[0]);
 
     if (servicePartsError) throw servicePartsError;
 
@@ -320,6 +348,7 @@ export const getDetailedExpenseBreakdown = async (
 ) => {
   const today = new Date();
   let startDate: Date;
+  let endDate: Date;
 
   switch (period) {
     case "daily":
@@ -328,12 +357,32 @@ export const getDetailedExpenseBreakdown = async (
         today.getMonth(),
         today.getDate(),
       );
+      endDate = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate() + 1,
+      );
       break;
     case "weekly":
-      startDate = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+      startDate = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000);
+      startDate = new Date(
+        startDate.getFullYear(),
+        startDate.getMonth(),
+        startDate.getDate(),
+      );
+      endDate = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate() + 1,
+      );
       break;
     case "monthly":
       startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+      endDate = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate() + 1,
+      );
       break;
   }
 
@@ -345,6 +394,7 @@ export const getDetailedExpenseBreakdown = async (
         .select("amount, category")
         .eq("transaction_type", "expense")
         .gte("transaction_date", startDate.toISOString().split("T")[0])
+        .lt("transaction_date", endDate.toISOString().split("T")[0])
         .in("category", EXPENSE_CATEGORIES.OPERATIONAL.subcategories);
 
     if (operationalError) throw operationalError;
@@ -355,6 +405,7 @@ export const getDetailedExpenseBreakdown = async (
       .select("amount, category")
       .eq("transaction_type", "expense")
       .gte("transaction_date", startDate.toISOString().split("T")[0])
+      .lt("transaction_date", endDate.toISOString().split("T")[0])
       .in("category", EXPENSE_CATEGORIES.OTHER.subcategories);
 
     if (otherError) throw otherError;
@@ -374,7 +425,8 @@ export const getDetailedExpenseBreakdown = async (
         )
       `,
       )
-      .gte("services.service_date", startDate.toISOString().split("T")[0]);
+      .gte("services.service_date", startDate.toISOString().split("T")[0])
+      .lt("services.service_date", endDate.toISOString().split("T")[0]);
 
     if (servicePartsError) throw servicePartsError;
 

@@ -94,16 +94,36 @@ const FinancialReports: React.FC<FinancialReportsProps> = () => {
   const fetchFinancialData = async () => {
     setLoading(true);
     try {
-      const [dailySummary, weeklyTrends, monthlyData] = await Promise.all([
+      const [
+        dailySummary,
+        weeklySummary,
+        monthlySummary,
+        weeklyTrends,
+        monthlyData,
+      ] = await Promise.all([
         getFinancialSummary("daily"),
+        getFinancialSummary("weekly"),
+        getFinancialSummary("monthly"),
         getFinancialTrends(7),
         getMonthlyFinancialData(6),
       ]);
 
       setData({
         daily: dailySummary,
-        weekly: weeklyTrends,
-        monthly: monthlyData,
+        weekly: {
+          ...weeklyTrends,
+          totalIncome: weeklySummary.income,
+          totalExpenses: weeklySummary.expenses,
+          totalProfit: weeklySummary.profit,
+          totalTransactions: weeklySummary.transactions,
+        },
+        monthly: {
+          ...monthlyData,
+          totalIncome: monthlySummary.income,
+          totalExpenses: monthlySummary.expenses,
+          totalProfit: monthlySummary.profit,
+          totalTransactions: monthlySummary.transactions,
+        },
       });
     } catch (error) {
       console.error("Error fetching financial data:", error);
@@ -156,7 +176,7 @@ const FinancialReports: React.FC<FinancialReportsProps> = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <SummaryCard
                   title="Total Pendapatan"
-                  value={formatCurrency(getDailySummary(data).income)}
+                  value={formatCurrency(getPeriodSummary(data, period).income)}
                   description={getPeriodDescription(period, "income")}
                   trend=""
                   trendUp={true}
@@ -164,7 +184,9 @@ const FinancialReports: React.FC<FinancialReportsProps> = () => {
                 />
                 <SummaryCard
                   title="Total Pengeluaran"
-                  value={formatCurrency(getDailySummary(data).expenses)}
+                  value={formatCurrency(
+                    getPeriodSummary(data, period).expenses,
+                  )}
                   description={getPeriodDescription(period, "expenses")}
                   trend=""
                   trendUp={false}
@@ -172,10 +194,10 @@ const FinancialReports: React.FC<FinancialReportsProps> = () => {
                 />
                 <SummaryCard
                   title="Total Laba"
-                  value={formatCurrency(getDailySummary(data).profit)}
+                  value={formatCurrency(getPeriodSummary(data, period).profit)}
                   description={getPeriodDescription(period, "profit")}
                   trend=""
-                  trendUp={getDailySummary(data).profit >= 0}
+                  trendUp={getPeriodSummary(data, period).profit >= 0}
                   icon={<PieChartIcon className="h-5 w-5 text-blue-500" />}
                 />
               </div>
@@ -201,10 +223,16 @@ const FinancialReports: React.FC<FinancialReportsProps> = () => {
                       <BarChart
                         data={[
                           {
-                            name: "Hari Ini",
-                            Pendapatan: getDailySummary(data).income,
-                            Pengeluaran: getDailySummary(data).expenses,
-                            Laba: getDailySummary(data).profit,
+                            name:
+                              period === "daily"
+                                ? "Hari Ini"
+                                : period === "weekly"
+                                  ? "Minggu Ini"
+                                  : "Bulan Ini",
+                            Pendapatan: getPeriodSummary(data, period).income,
+                            Pengeluaran: getPeriodSummary(data, period)
+                              .expenses,
+                            Laba: getPeriodSummary(data, period).profit,
                           },
                         ]}
                         margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
@@ -338,7 +366,7 @@ const FinancialReports: React.FC<FinancialReportsProps> = () => {
                     <div className="space-y-4">
                       <div className="text-center">
                         <p className="text-2xl font-bold text-blue-600">
-                          {getDailySummary(data).transactions}
+                          {getPeriodSummary(data, period).transactions}
                         </p>
                         <p className="text-sm text-muted-foreground">
                           Total Transaksi{" "}
@@ -355,10 +383,10 @@ const FinancialReports: React.FC<FinancialReportsProps> = () => {
                             Rata-rata per transaksi:
                           </span>
                           <span className="text-sm font-medium">
-                            {getDailySummary(data).transactions > 0
+                            {getPeriodSummary(data, period).transactions > 0
                               ? formatCurrency(
-                                  getDailySummary(data).income /
-                                    getDailySummary(data).transactions,
+                                  getPeriodSummary(data, period).income /
+                                    getPeriodSummary(data, period).transactions,
                                 )
                               : "Rp 0"}
                           </span>
@@ -1334,6 +1362,48 @@ const formatCurrency = (amount: number): string => {
 
 const getDailySummary = (data: FinancialReportsProps["data"]) => {
   return data?.daily || { income: 0, expenses: 0, profit: 0, transactions: 0 };
+};
+
+const getPeriodSummary = (
+  data: FinancialReportsProps["data"],
+  period: string,
+) => {
+  if (period === "daily") {
+    return getDailySummary(data);
+  } else if (period === "weekly" && data?.weekly) {
+    return {
+      income:
+        (data.weekly as any).totalIncome ||
+        data.weekly.income.reduce((a, b) => a + b, 0),
+      expenses:
+        (data.weekly as any).totalExpenses ||
+        data.weekly.expenses.reduce((a, b) => a + b, 0),
+      profit:
+        (data.weekly as any).totalProfit ||
+        data.weekly.income.reduce((a, b) => a + b, 0) -
+          data.weekly.expenses.reduce((a, b) => a + b, 0),
+      transactions:
+        (data.weekly as any).totalTransactions ||
+        getDailySummary(data).transactions * 7,
+    };
+  } else if (period === "monthly" && data?.monthly) {
+    return {
+      income:
+        (data.monthly as any).totalIncome ||
+        data.monthly.income.reduce((a, b) => a + b, 0),
+      expenses:
+        (data.monthly as any).totalExpenses ||
+        data.monthly.expenses.reduce((a, b) => a + b, 0),
+      profit:
+        (data.monthly as any).totalProfit ||
+        data.monthly.income.reduce((a, b) => a + b, 0) -
+          data.monthly.expenses.reduce((a, b) => a + b, 0),
+      transactions:
+        (data.monthly as any).totalTransactions ||
+        getDailySummary(data).transactions * 30,
+    };
+  }
+  return getDailySummary(data);
 };
 
 const getPeriodDescription = (

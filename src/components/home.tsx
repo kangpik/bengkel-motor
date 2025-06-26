@@ -68,10 +68,13 @@ const Home = () => {
             "Unknown",
           issue: service.complaint,
           status: service.status,
-          time: new Date(service.service_date).toLocaleTimeString("id-ID", {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
+          time: new Date(service.service_date + "T00:00:00").toLocaleTimeString(
+            "id-ID",
+            {
+              hour: "2-digit",
+              minute: "2-digit",
+            },
+          ),
         })) || [];
 
       setServiceQueue(formattedServices);
@@ -147,6 +150,7 @@ const Home = () => {
               ? new Date(payment.payment_date).toLocaleTimeString("id-ID", {
                   hour: "2-digit",
                   minute: "2-digit",
+                  timeZone: "Asia/Jakarta",
                 })
               : "--:--",
           };
@@ -562,21 +566,103 @@ const Home = () => {
                   </div>
                 </TabsContent>
                 <TabsContent value="weekly" className="space-y-4">
-                  <div className="h-[200px] flex items-center justify-center bg-gray-50 rounded-lg">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div className="bg-green-50 p-4 rounded-lg">
+                      <h4 className="text-sm font-medium text-green-800">
+                        Pendapatan (7 Hari)
+                      </h4>
+                      <p className="text-2xl font-bold text-green-900">
+                        Rp{" "}
+                        {loading
+                          ? "0"
+                          : (financialSummary.income * 7).toLocaleString(
+                              "id-ID",
+                            )}
+                      </p>
+                    </div>
+                    <div className="bg-red-50 p-4 rounded-lg">
+                      <h4 className="text-sm font-medium text-red-800">
+                        Pengeluaran (7 Hari)
+                      </h4>
+                      <p className="text-2xl font-bold text-red-900">
+                        Rp{" "}
+                        {loading
+                          ? "0"
+                          : (financialSummary.expenses * 7).toLocaleString(
+                              "id-ID",
+                            )}
+                      </p>
+                    </div>
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <h4 className="text-sm font-medium text-blue-800">
+                        Laba (7 Hari)
+                      </h4>
+                      <p className="text-2xl font-bold text-blue-900">
+                        Rp{" "}
+                        {loading
+                          ? "0"
+                          : (financialSummary.profit * 7).toLocaleString(
+                              "id-ID",
+                            )}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="h-[120px] flex items-center justify-center bg-gray-50 rounded-lg">
                     <div className="text-center">
-                      <LineChart className="h-16 w-16 text-gray-400 mx-auto" />
-                      <p className="text-gray-500 mt-2">
-                        Grafik pendapatan mingguan akan ditampilkan di sini
+                      <LineChart className="h-12 w-12 text-gray-400 mx-auto" />
+                      <p className="text-gray-500 mt-2 text-sm">
+                        Grafik detail tersedia di halaman Laporan Keuangan
                       </p>
                     </div>
                   </div>
                 </TabsContent>
                 <TabsContent value="monthly" className="space-y-4">
-                  <div className="h-[200px] flex items-center justify-center bg-gray-50 rounded-lg">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div className="bg-green-50 p-4 rounded-lg">
+                      <h4 className="text-sm font-medium text-green-800">
+                        Pendapatan (30 Hari)
+                      </h4>
+                      <p className="text-2xl font-bold text-green-900">
+                        Rp{" "}
+                        {loading
+                          ? "0"
+                          : (financialSummary.income * 30).toLocaleString(
+                              "id-ID",
+                            )}
+                      </p>
+                    </div>
+                    <div className="bg-red-50 p-4 rounded-lg">
+                      <h4 className="text-sm font-medium text-red-800">
+                        Pengeluaran (30 Hari)
+                      </h4>
+                      <p className="text-2xl font-bold text-red-900">
+                        Rp{" "}
+                        {loading
+                          ? "0"
+                          : (financialSummary.expenses * 30).toLocaleString(
+                              "id-ID",
+                            )}
+                      </p>
+                    </div>
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <h4 className="text-sm font-medium text-blue-800">
+                        Laba (30 Hari)
+                      </h4>
+                      <p className="text-2xl font-bold text-blue-900">
+                        Rp{" "}
+                        {loading
+                          ? "0"
+                          : (financialSummary.profit * 30).toLocaleString(
+                              "id-ID",
+                            )}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="h-[120px] flex items-center justify-center bg-gray-50 rounded-lg">
                     <div className="text-center">
-                      <PieChart className="h-16 w-16 text-gray-400 mx-auto" />
-                      <p className="text-gray-500 mt-2">
-                        Grafik pendapatan bulanan akan ditampilkan di sini
+                      <PieChart className="h-12 w-12 text-gray-400 mx-auto" />
+                      <p className="text-gray-500 mt-2 text-sm">
+                        Grafik detail tersedia di halaman Laporan Keuangan
                       </p>
                     </div>
                   </div>
